@@ -119,7 +119,7 @@ def run(ceph_cluster, **kw):
         ceph_cluster.setup_insecure_registry()
 
     # use the provided sample file as main site.yml
-    ceph_installer.setup_ansible_site_yml(ceph_cluster.containerized)
+    ceph_installer.setup_ansible_site_yml(build, ceph_cluster.containerized)
 
     ceph_cluster.distribute_all_yml()
 
@@ -130,8 +130,9 @@ def run(ceph_cluster, **kw):
     log.info("Ceph versions " + ceph_installer.get_installed_ceph_versions())
 
     out, rc = ceph_installer.exec_command(
-        cmd='cd {} ; ANSIBLE_STDOUT_CALLBACK=debug;ansible-playbook -vv -i hosts site.yml --limit {daemon}'.format(
-            ansible_dir, daemon=demon + 's'), long_running=True)
+        cmd='cd {} ; ANSIBLE_STDOUT_CALLBACK=debug;ansible-playbook -vvvv -i hosts site.yml '
+            '--limit {daemon}'.format(ansible_dir, daemon=demon + 's'),
+        long_running=True)
 
     # manually handle client creation in a containerized deployment (temporary)
     if ceph_cluster.containerized:

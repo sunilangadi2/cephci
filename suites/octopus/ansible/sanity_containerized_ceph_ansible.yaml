@@ -13,11 +13,10 @@ tests:
           ansi_config:
               ceph_test: True
               ceph_origin: distro
-              ceph_stable_release: nautilus
+              ceph_stable_release: octopus
               ceph_repository: rhcs
               osd_scenario: lvm
               osd_auto_discovery: False
-              journal_size: 1024
               ceph_stable: True
               ceph_stable_rh_storage: True
               ceph_docker_image: rhceph/rhceph-3-rhel7
@@ -103,11 +102,10 @@ tests:
           ansi_config:
             ceph_test: True
             ceph_origin: distro
-            ceph_stable_release: nautilus
+            ceph_stable_release: octopus
             ceph_repository: rhcs
             osd_scenario: lvm
             osd_auto_discovery: False
-            journal_size: 1024
             ceph_stable: True
             ceph_stable_rh_storage: True
             ceph_docker_image: rhceph/rhceph-3-rhel7
@@ -149,11 +147,10 @@ tests:
           ansi_config:
             ceph_test: True
             ceph_origin: distro
-            ceph_stable_release: nautilus
+            ceph_stable_release: octopus
             ceph_repository: rhcs
             osd_scenario: lvm
             osd_auto_discovery: False
-            journal_size: 1024
             ceph_stable: True
             ceph_stable_rh_storage: True
             ceph_docker_image: rhceph/rhceph-3-rhel7
@@ -195,11 +192,10 @@ tests:
           ansi_config:
             ceph_test: True
             ceph_origin: distro
-            ceph_stable_release: nautilus
+            ceph_stable_release: octopus
             ceph_repository: rhcs
             osd_scenario: lvm
             osd_auto_discovery: False
-            journal_size: 1024
             ceph_stable: True
             ceph_stable_rh_storage: True
             ceph_docker_image: rhceph/rhceph-3-rhel7
@@ -259,7 +255,7 @@ tests:
       module: purge_cluster.py
       config:
            ansible-dir: /usr/share/ceph-ansible
-           playbook-command: purge-docker-cluster.yml -e ireallymeanit=yes -e remove_packages=yes
+           playbook-command: purge-container-cluster.yml -e ireallymeanit=yes -e remove_packages=yes
       desc: Purge ceph cluster
 
    - test:

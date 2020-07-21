@@ -249,3 +249,48 @@ class RadosHelper:
                  mgr_object.containerized and mgr_object.container_name == proxy_container][0]
 
         return mgr_object
+
+    def run_radosbench(self, pg_count=8, seconds=10):
+        """
+        run IO using radosbench cli tool
+        """
+        sufix = random.randint(0, 10000)
+        pool_name = "scrub-memutil{}".format(sufix)
+        # TO-DO write a function to fetch max PG count(pg calc) possible for a pool based on running cluster config
+        self.mon.exec_command(cmd='sudo ceph osd pool create {} {}'.format(pool_name, pg_count))
+        # TO-DO pass block size based on cluster size(even osd size) and pg distribution
+        self.mon.exec_command(cmd='sudo rados --no-log-to-stderr -b 5000 -p {} bench {} write --no-cleanup'
+                                  .format(pool_name, seconds), long_running=True)
+
+    def run_scrub(self):
+        """
+        run scrub on all osds
+        """
+        timeout = 20
+        while timeout:
+            scrub_cmd = "sudo ceph osd scrub all"
+            self.mon.exec_command(cmd=scrub_cmd)
+            timeout = timeout - 2
+
+    def run_deep_scrub(self):
+        """
+        run deep-scrub on all osds
+        """
+        timeout = 20
+        while timeout:
+            scrub_cmd = "sudo ceph osd deep-scrub all"
+            self.mon.exec_command(cmd=scrub_cmd)
+            timeout = timeout - 2
+
+    def collect_osd_daemon_ids(self, mon_node, osd_node):
+        """
+        The method is used to collect the various OSD's present on a particular node
+        :param mon_node: name of the monitor node (ceph.ceph.CephNode): ceph node
+        :param osd_node: name of the OSD node on which osd daemon details are collected (ceph.ceph.CephNode): ceph node
+        :return: list od OSD's present on the node
+        """
+
+        cmd = f"sudo ceph osd ls-tree {osd_node.hostname}"
+        self.log(f"Collecting the OSD details from node {mon_node.hostname} by executing the command : {cmd}")
+        out, err = mon_node.exec_command(cmd=cmd)
+        return [int(ids) for ids in out.read().decode().split()]
