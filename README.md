@@ -7,13 +7,13 @@ It uses a modified version of Mita to create/destroy Ceph resources dynamically
 
 ## Getting Started
 #### Prerequisites
-1. Python 3.7
+1. Python 3.6 or newer.
 
 #### Installing
 It is recommended that you use a python virtual environment to install the necessary dependencies and execute cephci.
 
-1. Setup a python 3.7 virtual environment. This is actually quite easy to do now.
-    * `python3.7 -m venv <path/to/venv>`
+1. Setup a Python 3 virtual environment.
+    * `python3 -m venv <path/to/venv>`
     * `source <path/to/venv>/bin/activate`
 2. Install requirements with `pip install -r requirements.txt`
 
@@ -35,7 +35,7 @@ cp cephci.yaml.template ~/.cephci.yaml
 CentralCI auth files are kept in the `osp` directory.
 
 The `osp-cred-ci-2.yaml` file has OpenStack credentials details to create/destroy resources.
-For local cephci runs, you will want to replace the username/password and domain,tenant-domain-id: with
+For local cephci runs, you will want to replace the username/password with
 your own OpenStack credentials.
 
 #### Cluster Configuration
@@ -113,27 +113,29 @@ Some non-required arguments that we end up using a lot:
 Ceph ansible install suite:
 ```
 python run.py --rhbuild 3.3 --global-conf conf/luminous/ansible/sanity-ansible-lvm.yaml --osp-cred osp/osp-cred-ci-2.yaml
---inventory conf/inventory/rhel-7.7-server-x86_64.yaml --suite suites/luminous/ansible/sanity_ceph_ansible_lvm.yaml
+--inventory conf/inventory/rhel-7.8-server-x86_64.yaml --suite suites/luminous/ansible/sanity_ceph_ansible_lvm.yaml
 --log-level info
 ```
 Upgrade suite:
 ```
 python run.py --rhbuild 3.2 --global-conf conf/luminous/upgrades/upgrade.yaml --osp-cred osp/osp-cred-ci-2.yaml
---inventory conf/inventory/rhel-7.6-server-x86_64-released.yaml --suite suites/luminous/upgrades/upgrades.yaml
+--inventory conf/inventory/rhel-7.8-server-x86_64-released.yaml --suite suites/luminous/upgrades/upgrades.yaml
 --log-level info
 ```
 Containerized upgrade suite:
 ```
 python run.py --rhbuild 3.2 --global-conf conf/luminous/upgrades/upgrade.yaml --osp-cred osp/osp-cred-ci-2.yaml
---inventory conf/inventory/rhel-7.6-server-x86_64-released.yaml --suite suites/luminous/upgrades/upgrades_containerized.yaml
+--inventory conf/inventory/rhel-7.8-server-x86_64-released.yaml --suite suites/luminous/upgrades/upgrades_containerized.yaml
 --log-level info --ignore-latest-container --insecure-registry --skip-version-compare
 ```
 
 #### Manual cluster cleanup
 Ceph-CI also has the ability to manually clean up cluster nodes if anything was left behind during a test run.
 All you need to provide is your osp credentials and the instances name for the cluster. Don't use subset naming for custom instances name.eg: --instances-name vp and --instances-name vpoliset  at same time.
+
+For example, this command will delete all volumes and nodes that have the substring `ceph-kdreyer` in their names:
 ```
-python run.py --osp-cred <cred_file> --cleanup <instances_name>
+python run.py --osp-cred <cred_file> --log-level info --cleanup ceph-kdreyer
 ```
 
 ## Results

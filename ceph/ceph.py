@@ -152,6 +152,8 @@ class Ceph(object):
             if node.role == 'iscsi-gw':
                 node.open_firewall_port(port='3260', protocol='tcp')
                 node.open_firewall_port(port='5000-5001', protocol='tcp')
+            if node.role == 'grafana':
+                node.open_firewall_port(port='6800-6820', protocol='tcp')
 
     def setup_ssh_keys(self):
         """
@@ -201,6 +203,7 @@ class Ceph(object):
         nfs_hosts = []
         client_hosts = []
         iscsi_gw_hosts = []
+        grafana_hosts = []
         counter = 0
 
         for node in self:  # type: CephNode
@@ -277,6 +280,9 @@ class Ceph(object):
             if node.role == 'iscsi-gw':
                 iscsi_gw_host = node.shortname
                 iscsi_gw_hosts.append(iscsi_gw_host)
+            if node.role == 'grafana':
+                grafana_host = node.shortname + ' grafana_interface=' + node.eth_interface
+                grafana_hosts.append(grafana_host)
         hosts_file = ''
         if mon_hosts:
             mon = '[mons]\n' + '\n'.join(mon_hosts)
@@ -302,6 +308,9 @@ class Ceph(object):
         if iscsi_gw_hosts:
             iscsi_gw = '[iscsigws]\n' + '\n'.join(iscsi_gw_hosts)
             hosts_file += iscsi_gw + '\n'
+        if grafana_hosts:
+            grafana = '[grafana-server]\n' + '\n'.join(grafana_hosts)
+            hosts_file += grafana + '\n'
         logger.info('Generated hosts file: \n{file}'.format(file=hosts_file))
         return hosts_file
 
@@ -650,8 +659,9 @@ class Ceph(object):
                                 node.exec_command(sudo=True,
                                                   cmd='wget -O /etc/yum.repos.d/rh_repo.repo {repo}'.format(
                                                       repo=hotfix_repo))
-                            if not self.ansible_config.get('ceph_repository_type') == 'cdn':
-                                node.setup_rhceph_repos(base_url, installer_url)
+                            else:
+                                if not self.ansible_config.get('ceph_repository_type') == 'cdn':
+                                    node.setup_rhceph_repos(base_url, installer_url)
                     if self.ansible_config.get('ceph_repository_type') == 'iso' and node.role == 'installer':
                         iso_file_url = self.get_iso_file_url(base_url)
                         node.exec_command(sudo=True, cmd='mkdir -p {}/iso'.format(node.ansible_dir))
@@ -945,7 +955,8 @@ class SSHConnectionManager(object):
                 self.__client.connect(self.ip_address,
                                       username=self.username,
                                       password=self.password,
-                                      look_for_keys=self.look_for_keys)
+                                      look_for_keys=self.look_for_keys,
+                                      allow_agent=False)
                 break
             except Exception as e:
                 logger.warn('Connection outage: \n{error}'.format(error=e))
@@ -1820,8 +1831,8 @@ class CephInstaller(CephObject):
                 "7": "rhel-7-server-ansible-2.6-rpms"
             },
             "4": {
-                "7": "rhel-7-server-ansible-2.8-rpms",
-                "8": "ansible-2.8-for-rhel-8-x86_64-rpms"
+                "7": "rhel-7-server-ansible-2.9-rpms",
+                "8": "ansible-2.9-for-rhel-8-x86_64-rpms"
             },
             "5": {
                 "8": "ansible-2.9-for-rhel-8-x86_64-rpms"
@@ -1833,6 +1844,10 @@ class CephInstaller(CephObject):
         else:
             distro_ver = self.distro_info['VERSION_ID'].split(".")[0]
             rhcs_ver = rhbuild.split(".")[0]
+            # Use ansible 2.8 for rhcs 4.1.z
+            if str(rhbuild).startswith('4.1'):
+                ansible_rpm[rhcs_ver]['7'] = "rhel-7-server-ansible-2.8-rpms"
+                ansible_rpm[rhcs_ver]['8'] = "ansible-2.8-for-rhel-8-x86_64-rpms"
 
             try:
                 rpm = ansible_rpm[rhcs_ver][distro_ver]
@@ -1845,7 +1860,9 @@ class CephInstaller(CephObject):
                 raise CommandFailed(err)
 
         if kw.get('upgrade'):
-            self.exec_command(sudo=True, cmd='yum update metadata')
+            self.exec_command(sudo=True,
+                              cmd='yum update meta',
+                              check_ec=False)
             self.exec_command(sudo=True, cmd='yum update -y ansible ceph-ansible')
         else:
             self.exec_command(sudo=True, cmd='yum install -y ceph-ansible')
@@ -1903,7 +1920,7 @@ class CephInstaller(CephObject):
 
 
 class CephObjectFactory(object):
-    DEMON_ROLES = ['mon', 'osd', 'mgr', 'rgw', 'mds', 'nfs']
+    DEMON_ROLES = ['mon', 'osd', 'mgr', 'rgw', 'mds', 'nfs', 'grafana']
     CLIENT_ROLES = ['client']
 
     def __init__(self, node):
