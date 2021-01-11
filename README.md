@@ -1,6 +1,6 @@
-[![Build Status](https://travis-ci.com/red-hat-storage/cephci.svg?branch=master)](https://travis-ci.com/red-hat-storage/cephci)
+[![Build Status](https://github.com/red-hat-storage/cephci/workflows/tests/badge.svg)](https://github.com/red-hat-storage/cephci/actions)
 # Ceph-CI
-CEPH-CI is a framework tightly coupled with CentralCI and Redhat Builds for
+CEPH-CI is a framework tightly coupled with CentralCI and Red Hat Builds for
 testing Ceph downstream builds with CentralCI and Jenkins.
 
 It uses a modified version of Mita to create/destroy Ceph resources dynamically

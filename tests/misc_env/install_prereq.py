@@ -37,11 +37,8 @@ def install_prereq(ceph, timeout=1800, skip_subscription=False, repo=False, rhbu
     log.info("Waiting for cloud config to complete on " + ceph.hostname)
     ceph.exec_command(cmd='while [ ! -f /ceph-qa-ready ]; do sleep 15; done')
     log.info("cloud config to completed on " + ceph.hostname)
-    # workaround ,as there is bug on cloud-init which comes with rhel7.7 deployments
-    # https://bugzilla.redhat.com/show_bug.cgi?id=1748015
-    ceph.exec_command(cmd='sudo systemctl restart NetworkManager.service')
+
     update_ca_cert(ceph, 'https://password.corp.redhat.com/RH-IT-Root-CA.crt')
-    update_ca_cert(ceph, 'https://password.corp.redhat.com/legacy.crt')
     distro_info = ceph.distro_info
     distro_ver = distro_info['VERSION_ID']
     log.info('distro name: {name}'.format(name=distro_info['NAME']))
@@ -50,6 +47,9 @@ def install_prereq(ceph, timeout=1800, skip_subscription=False, repo=False, rhbu
     if ceph.pkg_type == 'deb':
         ceph.exec_command(cmd='sudo apt-get install -y ' + deb_all_packages, long_running=True)
     else:
+        # workaround: rhel 7.7's cloud-init has a bug:
+        # https://bugzilla.redhat.com/show_bug.cgi?id=1748015
+        ceph.exec_command(cmd='sudo systemctl restart NetworkManager.service')
         if not skip_subscription:
             setup_subscription_manager(ceph)
             enable_rhel_rpms(ceph, distro_ver)
@@ -57,7 +57,10 @@ def install_prereq(ceph, timeout=1800, skip_subscription=False, repo=False, rhbu
             setup_addition_repo(ceph, repo)
         # TODO enable only python3 rpms on both rhel7 &rhel8 once all component suites(rhcs3,4) are comptatible
         if distro_ver.startswith('8'):
-            rpm_all_packages = ' '.join(rpm_packages.get('py3'))
+            rpm_all_packages = rpm_packages.get('py3')
+            if str(rhbuild).startswith('5'):
+                rpm_all_packages = rpm_packages.get('py3') + ['lvm2', 'podman']
+            rpm_all_packages = ' '.join(rpm_all_packages)
         else:
             rpm_all_packages = ' '.join(rpm_packages.get('py2'))
         ceph.exec_command(cmd='sudo yum install -y ' + rpm_all_packages, long_running=True)
@@ -135,16 +138,19 @@ def enable_rhel_rpms(ceph, distro_ver):
 
 
 def registry_login(ceph, distro_ver):
-    ''' login to this registry 'registry.redhat.io' on all nodes
-        docker for RHEL 7.x and podman for RHEL 8.x'''
+    """
+    login to this registry 'registry.redhat.io' on all nodes
+        docker for RHEL 7.x and podman for RHEL 8.x
+    """
     cdn_cred = get_cephci_config().get('cdn_credentials')
     if not cdn_cred:
-        log.warn('cdn_credentials not found')
+        log.warning('no cdn_credentials in ~/.cephci.yaml.'
+                    ' Not logging into registry.redhat.io.')
         return
     user = cdn_cred.get('username')
     pwd = cdn_cred.get('password')
     if not (user and pwd):
-        log.warn('username and password not found for cdn_credentials')
+        log.warning('username and password not found for cdn_credentials')
         return
 
     container = 'docker'

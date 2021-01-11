@@ -16,6 +16,7 @@ setup(
         'apache-libcloud',
         'docopt==0.6.2',
         'gevent==1.4.0',
+        'greenlet==0.4.16',
         'reportportal-client==3.2.0',
         'requests==2.21.0',
         'paramiko==2.4.2',

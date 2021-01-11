@@ -362,6 +362,23 @@ def open_firewall_port(ceph_node, port, protocol):
 
 
 def config_ntp(ceph_node):
+    distro_info = ceph_node.distro_info
+    distro_ver = distro_info['VERSION_ID']
+
+    if distro_ver.startswith('8'):
+        ceph_node.exec_command(
+            cmd="sudo sed -i '/pool*/d;/server*/d' /etc/chrony.conf",
+            long_running=True)
+        ceph_node.exec_command(
+            cmd="sudo sed -i '1i server clock.corp.redhat.com iburst'"
+                " /etc/chrony.conf",
+            long_running=True)
+        ceph_node.exec_command(
+            cmd="sudo systemctl stop chronyd.service; sudo chronyc makestep;"
+                " sudo systemctl start chronyd.service; sudo chronyc sources",
+            long_running=True,
+        )
+        return True
     ceph_node.exec_command(
         cmd="sudo sed -i '/server*/d' /etc/ntp.conf",
         long_running=True)
@@ -400,7 +417,8 @@ def get_ceph_versions(ceph_nodes, containerized=False):
             else:
                 if containerized:
                     containers = []
-                    if node.role == 'client':
+                    # client and grafana role not supported for ceph commands
+                    if node.role == 'client' or node.role == 'grafana':
                         pass
                     else:
                         distro_info = node.distro_info
@@ -414,17 +432,22 @@ def get_ceph_versions(ceph_nodes, containerized=False):
                         log.info("Containers: {}".format(containers))
 
                     for container_name in containers:
-                        if distro_ver.startswith('8'):
-                            out, rc = node.exec_command(sudo=True, cmd='sudo podman exec {container} ceph --version'
-                                                                       .format(container=container_name))
-                        else:
-                            out, rc = node.exec_command(sudo=True, cmd='sudo docker exec {container} ceph --version'
-                                                                       .format(container=container_name))
+                        # node-exporter container not supported for ceph commands
+                        if container_name != 'node-exporter':
+                            if distro_ver.startswith('8'):
+                                out, rc = node.exec_command(sudo=True, cmd='sudo podman exec {container} ceph --version'
+                                                                           .format(container=container_name))
+                            else:
+                                out, rc = node.exec_command(sudo=True, cmd='sudo docker exec {container} ceph --version'
+                                                                           .format(container=container_name))
                         output = out.read().decode().rstrip()
                         log.info(output)
                         versions_dict.update({container_name: output})
 
                 else:
+                    #  client and grafana role not supported for ceph commands
+                    if node.role == 'client' or node.role == 'grafana':
+                        pass
                     out, rc = node.exec_command(cmd='ceph --version')
                     output = out.read().decode().rstrip()
                     log.info(output)

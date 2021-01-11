@@ -334,6 +334,7 @@ def run(args):
     ceph_version = []
     ceph_ansible_version = []
     distro = []
+    clients = []
     if inventory.get('instance').get('create'):
         distro.append(inventory.get('instance').get('create').get('image-name'))
     for cluster in conf.get('globals'):
@@ -499,7 +500,21 @@ def run(args):
                     config['add-repo'] = repo
             config['docker-insecure-registry'] = docker_insecure_registry
             config['skip_version_compare'] = skip_version_compare
-            if config and config.get('ansi_config'):
+            config['container_image'] = f'{docker_registry}/{docker_image}:{docker_tag}'
+            # For cdn container installation provide GAed container parameters
+            # in test suite file as below, In case cdn is not enabled the latest
+            # container details will be considered.
+            #
+            # config:
+            #     use_cdn: True
+            #     ansi_config:
+            #       ceph_repository_type: cdn
+            #       ceph_docker_image: "rhceph/rhceph-4-rhel8"
+            #       ceph_docker_image_tag: "latest"
+            #       ceph_docker_registry: "registry.redhat.io"
+
+            if config and config.get('ansi_config') and \
+                    config.get('ansi_config').get('ceph_repository_type') != 'cdn':
                 if docker_registry:
                     config.get('ansi_config')['ceph_docker_registry'] = str(docker_registry)
                 if docker_image:

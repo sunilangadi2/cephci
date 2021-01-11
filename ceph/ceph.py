@@ -17,7 +17,6 @@ import random
 from utility.utils import custom_ceph_config
 from utility import lvm_utils
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -424,8 +423,8 @@ class Ceph(object):
         Update all ceph demons nodes to allow insecure registry use
         """
         if self.containerized and self.ansible_config.get('ceph_docker_registry'):
-            logger.warn('Adding insecure registry:\n{registry}'
-                        .format(registry=self.ansible_config.get('ceph_docker_registry')))
+            logger.warning('Adding insecure registry:\n{registry}'
+                           .format(registry=self.ansible_config.get('ceph_docker_registry')))
             # for node in self.get_nodes():
             #     node.exec_command(sudo=True, cmd='sudo chmod 777 /etc/containers/registries.conf;'
             #                                      'sudo sed -i "16,17d" /etc/containers/registries.conf;'
@@ -959,7 +958,7 @@ class SSHConnectionManager(object):
                                       allow_agent=False)
                 break
             except Exception as e:
-                logger.warn('Connection outage: \n{error}'.format(error=e))
+                logger.warning('Connection outage: \n{error}'.format(error=e))
                 if not self.__outage_start_time:
                     self.__outage_start_time = datetime.datetime.now()
                 if datetime.datetime.now() - self.__outage_start_time > self.outage_timeout:
@@ -1796,26 +1795,21 @@ class CephInstaller(CephObject):
         Create proper site.yml from sample for containerized or non-containerized deployment
         Args:
             build(string): RHCS build
-            containerized(bool): use site-docker.yml.sample if True else site.yml.sample
+            containerized(bool): use site-container.yml.sample if True else site.yml.sample
         """
         # https://github.com/ansible/ansible/issues/11536
         self.exec_command(cmd='''echo 'export ANSIBLE_SSH_CONTROL_PATH="%(directory)s/%%C"'>> ~/.bashrc;
                                  source ~/.bashrc''')
-        if containerized:
-            file_name = "site-docker.yml"
-            if build.startswith("5"):
-                file_name = "site-container.yml"
 
-            self.exec_command(
-                sudo=True,
-                cmd='cp -R {ansible_dir}/{file_name}.sample {ansible_dir}/site.yml'.format(
-                    ansible_dir=self.ansible_dir,
-                    file_name=file_name
-                ))
-        else:
-            self.exec_command(
-                sudo=True, cmd='cp -R {ansible_dir}/site.yml.sample {ansible_dir}/site.yml'.format(
-                    ansible_dir=self.ansible_dir))
+        file_name = "site.yml"
+
+        if containerized:
+            file_name = "site-container.yml"
+
+        self.exec_command(
+            sudo=True,
+            cmd='cp -R {ansible_dir}/{file_name}.sample {ansible_dir}/{file_name}'.format(
+                ansible_dir=self.ansible_dir, file_name=file_name))
 
     def install_ceph_ansible(self, rhbuild, **kw):
         """
@@ -1917,6 +1911,43 @@ class CephInstaller(CephObject):
         except CommandFailed as err:
             logger.error(err.args)
         return False
+
+    def read_cephadm_gen_pub_key(self):
+        """
+        Read cephadm generated public key
+        Arg:
+            Installer node
+        Returns:
+            Public Key string
+        """
+        ceph_pub_key, _ = self.exec_command(cmd="sudo cat /etc/ceph/ceph.pub")
+        return ceph_pub_key.read().decode().strip()
+
+    def distribute_cephadm_gen_pub_key(self, ceph_cluster, nodes=None):
+        """
+        Distribute cephadm generated public key to all nodes in the list.
+        Args:
+            ceph_cluster: ceph cluster object
+            nodes: node list to add ceph public key(default: None)
+        """
+        ceph_pub_key = self.read_cephadm_gen_pub_key()
+
+        if nodes is None:
+            nodes = ceph_cluster.get_nodes()
+
+        nodes = nodes if isinstance(nodes, list) else [nodes]
+
+        for each_node in nodes:
+            each_node.exec_command(cmd="sudo install -d -m 0700 /root/.ssh")
+            keys_file = each_node.write_file(
+                sudo=True,
+                file_name='/root/.ssh/authorized_keys', file_mode='a'
+            )
+            keys_file.write(ceph_pub_key)
+            keys_file.flush()
+            each_node.exec_command(
+                cmd="sudo chmod 0600 /root/.ssh/authorized_keys"
+            )
 
 
 class CephObjectFactory(object):

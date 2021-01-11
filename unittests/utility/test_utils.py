@@ -1,6 +1,7 @@
 import os
+import pytest
 
-from utility.utils import custom_ceph_config
+from utility.utils import custom_ceph_config, get_cephci_config
 
 suite_config = {'global': {'osd_pool_default_pg_num': 64,
                            'osd_default_pool_size': 2,
@@ -12,8 +13,10 @@ cli_config = ['osd_pool_default_pg_num=128',
               'osd_pool_default_pgp_num=128',
               'mon_max_pg_per_osd=1024']
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
-config_file = os.path.join(dir_path, 'data/custom_config_test_data.yaml')
+
+@pytest.fixture
+def config_file(fixtures_dir):
+    return os.path.join(fixtures_dir, 'custom_ceph_config.yaml')
 
 
 def test_custom_ceph_config_no_values():
@@ -36,7 +39,7 @@ def test_custom_ceph_config_cli_only():
     assert result == expected
 
 
-def test_custom_ceph_config_file_only():
+def test_custom_ceph_config_file_only(config_file):
     expected = {'global': {'osd_pool_default_pg_num': 64,
                            'osd_default_pool_size': 2,
                            'osd_pool_default_pgp_num': 64,
@@ -58,7 +61,7 @@ def test_custom_ceph_config_suite_and_cli():
     assert result == expected
 
 
-def test_custom_ceph_config_suite_and_file():
+def test_custom_ceph_config_suite_and_file(config_file):
     expected = {'global': {'osd_pool_default_pg_num': 64,
                            'osd_default_pool_size': 2,
                            'osd_pool_default_pgp_num': 64,
@@ -72,7 +75,7 @@ def test_custom_ceph_config_suite_and_file():
     assert result == expected
 
 
-def test_custom_ceph_config_cli_and_file():
+def test_custom_ceph_config_cli_and_file(config_file):
     expected = {'global': {'osd_pool_default_pg_num': '128',
                            'osd_default_pool_size': '2',
                            'osd_pool_default_pgp_num': '128',
@@ -84,7 +87,7 @@ def test_custom_ceph_config_cli_and_file():
     assert result == expected
 
 
-def test_custom_ceph_config_all():
+def test_custom_ceph_config_all(config_file):
     expected = {'global': {'osd_pool_default_pg_num': '128',
                            'osd_default_pool_size': '2',
                            'osd_pool_default_pgp_num': '128',
@@ -95,3 +98,24 @@ def test_custom_ceph_config_all():
                         'mon_osd_nearfull_ratio': .70}}
     result = custom_ceph_config(suite_config, cli_config, config_file)
     assert result == expected
+
+
+def test_get_cephi_config(monkeypatch, fixtures_dir):
+    """Test loading of cephci configuration."""
+    def mock_return(x):
+        return fixtures_dir
+
+    monkeypatch.setattr(os.path, "expanduser", mock_return)
+    ceph_cfg = get_cephci_config()
+
+    assert ceph_cfg.get("email", {}).get("address") == "cephci@redhat.com"
+
+
+def test_get_cephci_config_raises(monkeypatch):
+    """Test exception thrown when invalid file is provided."""
+    def mock_return(x):
+        return "./"
+
+    monkeypatch.setattr(os.path, "expanduser", mock_return)
+    with pytest.raises(IOError):
+        get_cephci_config()
