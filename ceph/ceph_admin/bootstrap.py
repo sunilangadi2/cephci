@@ -58,6 +58,34 @@ def construct_registry(cls, registry: str, json_file: bool = False):
     return config_dict_to_string(reg_args)
 
 
+def generate_ssl_certificate(cls, dashboard_key, dashboard_crt):
+    """
+    Construct dashboard key and certificate files for bootstrapping cluster
+    with dashboard custom key and certificate files for ssl
+    Args:
+        cls: class object
+        dashboard_key: path to generate ssl key
+        dashboard_crt: path to generate ssl certificate
+    """
+
+    # Installing openssl package needed for ssl
+    cls.installer.exec_command(
+        sudo=True,
+        cmd="yum install -y openssl",
+    )
+
+    # Generating key and certificate for dashboard ssl
+    cls.installer.exec_command(
+        sudo=True,
+        cmd=f'openssl req -new -nodes -x509 \
+            -subj "/O=IT/CN=ceph-mgr-dashboard" -days 3650 \
+            -keyout {dashboard_key} \
+            -out {dashboard_crt} -extensions v3_ca',
+    )
+    cert_args = {"dashboard-key": dashboard_key, "dashboard-crt": dashboard_crt}
+    return config_dict_to_string(cert_args)
+
+
 def copy_ceph_configuration_files(cls, ceph_conf_args):
     """
     Copy ceph configuration files to ceph default "/etc/ceph" path.
@@ -166,6 +194,16 @@ class BootstrapMixin:
         registry_json = args.pop("registry-json", None)
         if registry_json:
             cmd += construct_registry(self, registry_json, json_file=True)
+
+        """ Generate dashboard certificate and key if bootstrap cli
+            have this options as dashboard-key and dashboard-crt """
+        dashboard_key_path = args.pop("dashboard-key", False)
+        dashboard_cert_path = args.pop("dashboard-crt", False)
+
+        if dashboard_cert_path and dashboard_key_path:
+            cmd += generate_ssl_certificate(
+                self, dashboard_key_path, dashboard_cert_path
+            )
 
         # To be generic, the mon-ip contains the global node name. Here, we replace the
         # name with the IP address. The replacement allows us to be inline with the
